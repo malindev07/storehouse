@@ -1,5 +1,6 @@
 import asyncio
-from typing import AsyncGenerator
+from contextlib import asynccontextmanager
+from typing import AsyncGenerator, AsyncIterator
 
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
@@ -29,6 +30,21 @@ class DatabaseHelper:
         except Exception as e:
             raise e
 
+    @asynccontextmanager
+    async def session(self, *, commit: bool = True) -> AsyncIterator[AsyncSession]:
+        """
+        commit=True  -> commit на успешный выход, rollback на ошибку
+        commit=False -> только rollback на ошибку (удобно для readonly операций)
+        """
+        async with self.session_factory() as session:
+            try:
+                yield session
+                if commit:
+                    await session.commit()
+            except Exception:
+                await session.rollback()
+                raise
+
     async def health_check(self) -> bool:
         """Проверка доступности БД"""
         try:
@@ -56,4 +72,4 @@ class DatabaseHelper:
 
 url = Settings().database_url
 db_helper = DatabaseHelper(db_url=url)
-asyncio.run(db_helper.recreate_all())
+# asyncio.run(db_helper.recreate_all())
