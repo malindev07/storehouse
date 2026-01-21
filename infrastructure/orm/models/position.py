@@ -29,40 +29,43 @@ class PositionsModel(Base):
         server_default=func.now(), onupdate=func.now(), nullable=False
     )
 
-    @classmethod
-    def from_attrs(cls, src: Any) -> "PositionsModel":
-        try:
-            obj = cls()
-            mapper = inspect(cls)
-
-            is_mapping = isinstance(src, Mapping)
-
-            # копируем только колонки модели
-            for col in mapper.columns:
-                key = col.key
-
-                if is_mapping:
-                    if key in src:
-                        setattr(obj, key, src[key])
-                else:
-                    if hasattr(src, key):
-                        setattr(obj, key, getattr(src, key))
-
-            # проверяем обязательные поля (nullable=False и нет default/server_default)
-            missing = [
-                col.key
-                for col in mapper.columns
-                if (not col.nullable)
-                and (col.default is None)
-                and (col.server_default is None)
-                and (getattr(obj, col.key, None) is None)
-            ]
-            if missing:
-                raise ValueError(f"Missing required fields: {missing}")
-
-            return obj
-        except Exception as e:
-            print(str(e), src)
+    # def to_dict(self) -> dict:
+    #     return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
+    #
+    # @classmethod
+    # def from_attrs(cls, src: Any) -> "PositionsModel":
+    #     try:
+    #         obj = cls()
+    #         mapper = inspect(cls)
+    #
+    #         is_mapping = isinstance(src, Mapping)
+    #
+    #         # копируем только колонки модели
+    #         for col in mapper.columns:
+    #             key = col.key
+    #
+    #             if is_mapping:
+    #                 if key in src:
+    #                     setattr(obj, key, src[key])
+    #             else:
+    #                 if hasattr(src, key):
+    #                     setattr(obj, key, getattr(src, key))
+    #
+    #         # проверяем обязательные поля (nullable=False и нет default/server_default)
+    #         missing = [
+    #             col.key
+    #             for col in mapper.columns
+    #             if (not col.nullable)
+    #             and (col.default is None)
+    #             and (col.server_default is None)
+    #             and (getattr(obj, col.key, None) is None)
+    #         ]
+    #         if missing:
+    #             raise ValueError(f"Missing required fields: {missing}")
+    #
+    #         return obj
+    #     except Exception as e:
+    #         print(str(e), src)
 
 
 class AVGPositionsInfoModel(Base):

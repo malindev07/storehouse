@@ -2,68 +2,97 @@ import asyncio
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Any
 
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from domain.domain_models.positions import Position
 from infrastructure.orm.models import PositionsModel
 
 
-from infrastructure.db_helper import DatabaseHelper, db_helper
+from infrastructure.db_helper import DatabaseHelper
+from services.logger_setup import get_logger
+
+log = get_logger(__name__)
 
 
 @dataclass
 class PositionsMetadataProvider:
     db: DatabaseHelper
 
-    def get_many(self):
-        pass
+    async def get_all(self) -> list[PositionsModel] | None:
+        try:
+            async with self.db.session(commit=True) as session:
+                query = select(PositionsModel)
+                result = await session.execute(query)
+                scalar_result = result.scalars().all()
+                log.info(msg=f"Successful got list items, len = {len(scalar_result)}")
+                return scalar_result
+        except Exception as e:
+            log.info(msg=f"Fail to get items, {e}")
+            return None
 
-    def get_by_id(self):
-        pass
+    async def get_by_id(self, position_id: str):
+        try:
+            async with self.db.session(commit=True) as session:
+                query = select(PositionsModel).where(PositionsModel.id == position_id)
+                result = await session.execute(query)
+                scalar_result = result.scalar_one_or_none()
+                log.info(msg=f"Successful got item by id {position_id}")
+                log.debug(
+                    msg=f"Successful got item by id {position_id}, item - {scalar_result.to_dict()}"
+                )
+                return scalar_result
+        except Exception as e:
+            log.info(msg=f"Fail to get item with id {position_id}, {e}")
+            return None
 
     async def insert_many(self, items: list[Any], refresh: bool = False):
         ok: list[PositionsModel] = []
         failed: list[tuple[Any, str]] = []
+        try:
+            for item in items:
+                obj = (
+                    item
+                    if isinstance(item, PositionsModel)
+                    else PositionsModel.from_dict(item)
+                )
 
-        for item in items:
-            obj = (
-                item
-                if isinstance(item, PositionsModel)
-                else PositionsModel.from_attrs(item)
-            )
+                try:
+                    async with self.db.session(commit=True) as session:
+                        session.add(obj)
+                        await session.flush()
+                        if refresh:
+                            await session.refresh(obj)
+                    ok.append(obj)
 
-            try:
-                async with self.db.session(commit=True) as session:
-                    session.add(obj)
-                    await session.flush()
-                    if refresh:
-                        await session.refresh(obj)
-                ok.append(obj)
+                except IntegrityError as e:
+                    # этот obj не сохранился, но остальные продолжим
+                    failed.append((item, str(e.orig)))
 
-            except IntegrityError as e:
-                # этот obj не сохранился, но остальные продолжим
-                failed.append((item, str(e.orig)))
-            except Exception as e:
-                failed.append((item, str(e)))
-        print(ok, failed)
-        return ok, failed
+            return ok, failed
+        except Exception as e:
+            log.debug(msg=(ok, failed))
+            log.info(msg=f"Fail to insert items, {e}")
 
     async def insert(
         self, item: dict[str, Any] | PositionsModel, refresh: bool = True
-    ) -> PositionsModel:
+    ) -> PositionsModel | None:
 
-        obj = (
-            item
-            if isinstance(item, PositionsModel)
-            else PositionsModel.from_attrs(item)
-        )
-        async with self.db.session() as session:
-            session.add(obj)
-            # чтобы obj гарантированно получил PK/дефолты до refresh
-            await session.flush()
-            if refresh:
-                await session.refresh(obj)
-            return obj
+        try:
+            obj = (
+                item
+                if isinstance(item, PositionsModel)
+                else PositionsModel.from_dict(item)
+            )
+            async with self.db.session() as session:
+                session.add(obj)
+                # чтобы obj гарантированно получил PK/дефолты до refresh
+                await session.flush()
+                if refresh:
+                    await session.refresh(obj)
+                return obj
+        except Exception as e:
+            log.info(msg=f"Fail to insert {item}, {e}")
+            return None
 
     def delete_many(self):
         pass
@@ -79,47 +108,3 @@ class PositionsMetadataProvider:
 
 
 # 1) вставить одну
-provider = PositionsMetadataProvider(db=db_helper)
-asyncio.run(
-    provider.insert_many(
-        [
-            {
-                "id": "A-004",
-                "category": "engine",
-                "sub_category": "oil",
-                "name": "Motor oil 5W-30",
-                "description": "Synthetic",
-                "balance": 10,
-                "min_balance": 2,
-                "purchase_price": 20.0,
-                "sale_price": 35.0,
-                "markup": 1.75,
-                "provider": "castrol",
-            },
-            {
-                "id": "A-003",
-                "category": "transmission",
-                "sub_category": "oil",
-                "name": "Motor oil 10W-40",
-                "description": "Synthetic",
-                "balance": 1011111,
-                "min_balance": 2,
-                "purchase_price": 2110.0,
-                "sale_price": 15.0,
-                "markup": 1.5,
-                "provider": "lukoil",
-            },
-            {
-                "id": "A-002",
-                "category": "transmission",
-                "sub_category": "oil",
-                "name": "Motor oil 10W-40",
-                "description": "Synthetic",
-                "balance": 1011111,
-                "min_balance": 2,
-                "purchase_price": 2110.0,
-                "sale_price": 15.0,
-            },
-        ]
-    )
-)
