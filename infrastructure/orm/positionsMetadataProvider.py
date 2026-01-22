@@ -30,22 +30,24 @@ class PositionsMetadataProvider:
             log.info(msg=f"Fail to get items, {e}")
             return None
 
-    async def get_by_id(self, position_id: str):
+    async def get_by_id(self, position_id: str) -> PositionsModel | None:
         try:
             async with self.db.session(commit=True) as session:
                 query = select(PositionsModel).where(PositionsModel.id == position_id)
                 result = await session.execute(query)
-                scalar_result = result.scalar_one_or_none()
+                position = result.scalar_one_or_none()
                 log.info(msg=f"Successful got item by id {position_id}")
                 log.debug(
-                    msg=f"Successful got item by id {position_id}, item - {scalar_result.to_dict()}"
+                    msg=f"Successful got item by id {position_id}, item - {position.to_dict()}"
                 )
-                return scalar_result
+                return position
         except Exception as e:
             log.info(msg=f"Fail to get item with id {position_id}, {e}")
             return None
 
-    async def insert_many(self, items: list[Any], refresh: bool = False):
+    async def insert_many(
+        self, items: list[Any], refresh: bool = False
+    ) -> tuple | None:
         ok: list[PositionsModel] = []
         failed: list[tuple[Any, str]] = []
         try:
@@ -67,11 +69,13 @@ class PositionsMetadataProvider:
                 except IntegrityError as e:
                     # этот obj не сохранился, но остальные продолжим
                     failed.append((item, str(e.orig)))
+                    return None
 
             return ok, failed
         except Exception as e:
             log.debug(msg=(ok, failed))
             log.info(msg=f"Fail to insert items, {e}")
+            return None
 
     async def insert(
         self, item: dict[str, Any] | PositionsModel, refresh: bool = True
@@ -94,17 +98,129 @@ class PositionsMetadataProvider:
             log.info(msg=f"Fail to insert {item}, {e}")
             return None
 
-    def delete_many(self):
-        pass
+    async def delete_many(self, positions_id: list[str]):
+        if not positions_id:
+            return False
 
-    def delete(self):
-        pass
+        async with self.db.session() as session:
+            try:
+                query = select(PositionsModel).where(
+                    PositionsModel.id.in_(positions_id)
+                )
+                result = await session.execute(query)
+                positions = result.scalars().all()
 
-    def update_many(self):
-        pass
+                for position in positions:
+                    try:
+                        await session.delete(position)
+                        log.info(
+                            msg=f"Position id - {position.id} successfully deleted"
+                        )
+                    except Exception as e:
+                        log.info(msg=f"Position id - {position.id} can not delete, {e}")
+            except Exception as e:
+                log.error(msg=f"Fail to delete, {e}")
 
-    def update(self):
-        pass
+    async def delete_by_id(self, position_id: str) -> bool:
+        try:
+            async with self.db.session() as session:
+                query = select(PositionsModel).where(PositionsModel.id == position_id)
+                result = await session.execute(query)
+                position = result.scalar_one_or_none()
+                if position is None:
+                    log.info(msg=f"Position with id {position_id} is not found")
+                    return False
+                await session.delete(position)
+                log.info(msg=f"Position with id {position_id} successfully deleted")
+                return True
+        except Exception as e:
+            log.error(msg=f"Fail to delete id - {position_id}, {e}")
+            return False
+
+    async def update_many_by_id(
+        self,
+        ids_data: dict[str, dict[str, Any]],
+    ):
+        updated: list[PositionsModel] = []
+        failed: list[tuple[str, str]] = []
+
+        allowed = set(PositionsModel.__table__.columns.keys())
+
+        try:
+            async with self.db.session(commit=True) as session:
+                # 1) Забираем все записи одним запросом
+                res = await session.execute(
+                    select(PositionsModel).where(
+                        PositionsModel.id.in_(list(ids_data.keys()))
+                    )
+                )
+                positions = res.scalars().all()
+
+                found_ids = {p.id for p in positions}
+                # 2) То, чего нет в БД — сразу в failed
+                for pid in ids_data.keys():
+                    if pid not in found_ids:
+                        failed.append((pid, "NOT_FOUND"))
+
+                # 3) Обновляем каждую запись отдельно, чтобы ошибка не откатывала всех
+                for position in positions:
+                    pid = position.id
+                    patch = ids_data.get(pid, {})
+
+                    try:
+                        async with session.begin_nested():  # SAVEPOINT
+                            for k, v in patch.items():
+                                if k in ("id", "created_at", "updated_at"):
+                                    continue
+                                if k in allowed:
+                                    setattr(position, k, v)
+                            await session.flush()
+                        await session.refresh(position)
+                        updated.append(position)
+                        log.info(f"Position id={pid} successfully updated")
+
+                    except IntegrityError as e:
+                        failed.append((pid, f"INTEGRITY_ERROR: {e.orig}"))
+                        log.warning(f"Position id={pid} update failed: {e}")
+                    except Exception as e:
+                        failed.append((pid, str(e)))
+                        log.error(f"Position id={pid} update failed: {e}")
+
+            return updated, failed
+
+        except Exception as e:
+            log.error(f"Error to update positions {list(ids_data.keys())}, {e}")
+            # если упало вообще всё (например, нет соединения) — логично вернуть всех как failed
+            return [], [(pid, f"DB_ERROR: {e}") for pid in ids_data.keys()]
+
+    async def update_by_id(
+        self, position_id: str, data: dict[str, Any]
+    ) -> PositionsModel | None:
+
+        try:
+            async with self.db.session(commit=True) as session:
+                res = await session.execute(
+                    select(PositionsModel).where(PositionsModel.id == position_id)
+                )
+                position = res.scalar_one_or_none()
+                if position is None:
+                    return None
+
+                allowed = set(PositionsModel.__table__.columns.keys())
+                for k, v in data.items():
+                    if k in ("id", "created_at", "updated_at"):
+                        continue
+                    if k in allowed:
+                        setattr(position, k, v)
+
+                await session.flush()
+                await session.refresh(position)
+
+                log.info(msg=f"Position id - {position_id} successfully update")
+                return position
+        except Exception as e:
+            log.error(msg=f"Error to update position id - {position_id}, {e}")
+            return None
 
 
 # 1) вставить одну

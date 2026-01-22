@@ -9,7 +9,14 @@ setup_logging(app_name="storehouse", level="DEBUG")
 
 
 provider = PositionsMetadataProvider(db=db_helper)
-asyncio.run(provider.get_by_id("A-007"))
+asyncio.run(
+    provider.update_many_by_id(
+        ids_data={"A-007": {"sub_category": "instrumetn"}, "A-008": {"category": "КПП"}}
+    )
+)
+# asyncio.run(
+#     provider.update_by_id(position_id="A-003", data={"sub_category": "oilllll"})
+# )
 # asyncio.run(
 #     provider.insert_many(
 #         [
