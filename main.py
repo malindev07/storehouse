@@ -2,18 +2,40 @@
 import asyncio
 
 from infrastructure.db_helper import db_helper
-from infrastructure.orm.positionsMetadataProvider import PositionsMetadataProvider
+from infrastructure.orm.metadata_providers.positionsMetadataProvider import (
+    PositionsMetadataProvider,
+)
+from infrastructure.orm.metadata_providers.providerManagerMetadataProvider import (
+    ProviderManagerMetadataProvider,
+)
+from infrastructure.orm.metadata_providers.providersMetadataProvider import (
+    ProviderMetadataProvider,
+)
+from infrastructure.orm.models import ProviderManagerModel
 from services.logger_setup import setup_logging
 
 setup_logging(app_name="storehouse", level="DEBUG")
 
 
-provider = PositionsMetadataProvider(db=db_helper)
-asyncio.run(
-    provider.update_many_by_id(
-        ids_data={"A-007": {"sub_category": "instrumetn"}, "A-008": {"category": "КПП"}}
-    )
+position_metadata = PositionsMetadataProvider(db=db_helper)
+provider_metadata = ProviderMetadataProvider(db=db_helper)
+manager_provider = ProviderManagerMetadataProvider(db=db_helper)
+manager_data = {
+    "provider_id": "6f1a7e9a-4f55-4a7c-9b4b-25d6c5d0f1c2",
+    "name": "Иван Петров",
+    "telephones": "+7 (999) 123-45-67",
+}
+manager_data["provider_id"] = (
+    "d71bb060-c59c-4f0e-9c55-cd6692f55846"  # можно UUID, можно строкой (у тебя конвертируется)
 )
+manager = ProviderManagerModel.from_dict_strict(manager_data, allow_id=False)
+
+provider_data = {
+    "name": "ООО «ГазСервис Север»",
+    "address": "г. Москва, ул. Примерная, 10",
+    "description": "Поставщик комплектующих и расходников для ГБО. Работаем по договору, безнал/нал.",
+}
+asyncio.run(manager_provider.insert(data=manager_data))
 # asyncio.run(
 #     provider.update_by_id(position_id="A-003", data={"sub_category": "oilllll"})
 # )

@@ -138,9 +138,8 @@ class PositionsMetadataProvider:
             return False
 
     async def update_many_by_id(
-        self,
-        ids_data: dict[str, dict[str, Any]],
-    ):
+        self, ids_data: dict[str, dict[str, Any]]
+    ) -> tuple[list[PositionsModel], list[tuple[str, str]]]:
         updated: list[PositionsModel] = []
         failed: list[tuple[str, str]] = []
 
@@ -221,6 +220,3 @@ class PositionsMetadataProvider:
         except Exception as e:
             log.error(msg=f"Error to update position id - {position_id}, {e}")
             return None
-
-
-# 1) вставить одну
