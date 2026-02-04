@@ -2,7 +2,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Optional, Any
 
-from sqlalchemy import select
+from sqlalchemy import select, update, and_
 from sqlalchemy.exc import IntegrityError
 
 from infrastructure.orm.models import PositionsModel
@@ -13,6 +13,7 @@ from services.logger_setup import get_logger
 
 log = get_logger(__name__)
 from uuid import UUID
+
 
 @dataclass
 class PositionsMetadataProvider:
@@ -219,4 +220,100 @@ class PositionsMetadataProvider:
                 return position
         except Exception as e:
             log.error(msg=f"Error to update position id - {position_id}, {e}")
+            return None
+
+    async def get_by_category(self, category: str) -> list[PositionsModel] | None:
+        try:
+            async with self.db.session(commit=False) as session:
+                q = select(PositionsModel).where(PositionsModel.category == category)
+                res = await session.execute(q)
+                items = res.scalars().all()
+                log.info(f"Got positions by category='{category}', len={len(items)}")
+                return items
+        except Exception as e:
+            log.error(f"Fail get_by_category '{category}': {e}")
+            return None
+
+    async def get_by_sub_category(
+        self, sub_category: str
+    ) -> list[PositionsModel] | None:
+        try:
+            async with self.db.session(commit=False) as session:
+                q = select(PositionsModel).where(
+                    PositionsModel.sub_category == sub_category
+                )
+                res = await session.execute(q)
+                items = res.scalars().all()
+                log.info(
+                    f"Got positions by sub_category='{sub_category}', len={len(items)}"
+                )
+                return items
+        except Exception as e:
+            log.error(f"Fail get_by_sub_category '{sub_category}': {e}")
+            return None
+
+    async def apply_markup_percent_by_filter(
+        self,
+        *,
+        percent: float,
+        category: str | None = None,
+        sub_category: str | None = None,
+        warehouse_id: UUID | None = None,
+        ids: list[UUID] | None = None,
+    ) -> int:
+        factor = 1.0 + (percent / 100.0)
+
+        if factor <= 0:
+            raise ValueError("percent results in non-positive factor")
+
+        conditions = []
+        if category is not None:
+            conditions.append(PositionsModel.category == category)
+        if sub_category is not None:
+            conditions.append(PositionsModel.sub_category == sub_category)
+        if warehouse_id is not None:
+            conditions.append(PositionsModel.warehouse_id == warehouse_id)
+        if ids:
+            conditions.append(PositionsModel.id.in_(ids))
+
+        if not conditions:
+            raise ValueError("At least one filter must be provided")
+
+        async with self.db.session(commit=True) as session:
+            stmt = (
+                update(PositionsModel)
+                .where(and_(*conditions))
+                .values(markup=PositionsModel.markup * factor)
+                .execution_options(synchronize_session="fetch")
+            )
+            res = await session.execute(stmt)
+            return int(res.rowcount or 0)
+
+    async def search(
+        self,
+        *,
+        warehouse_id: Optional[UUID] = None,
+        category: Optional[str] = None,
+        sub_category: Optional[str] = None,
+    ) -> list[PositionsModel] | None:
+        try:
+            async with self.db.session(commit=False) as session:
+                q = select(PositionsModel)
+
+                if warehouse_id is not None:
+                    q = q.where(PositionsModel.warehouse_id == warehouse_id)
+                if category is not None:
+                    q = q.where(PositionsModel.category == category)
+                if sub_category is not None:
+                    q = q.where(PositionsModel.sub_category == sub_category)
+
+                res = await session.execute(q)
+                items = res.scalars().all()
+                log.info(
+                    f"Positions search: warehouse_id={warehouse_id}, category={category}, "
+                    f"sub_category={sub_category}, len={len(items)}"
+                )
+                return items
+        except Exception as e:
+            log.error(f"Fail to search positions: {e}")
             return None

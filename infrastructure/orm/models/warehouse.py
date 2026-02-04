@@ -5,7 +5,6 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from infrastructure.orm.models import PositionsModel
 from infrastructure.orm.models.base import Base
 
 
@@ -22,7 +21,7 @@ class WarehouseModel(Base):
     address: Mapped[str] = mapped_column(nullable=False)
 
     # обратная связь
-    positions: Mapped[list[PositionsModel]] = relationship(
+    positions: Mapped[list["PositionsModel"]] = relationship(
         back_populates="warehouse",
         lazy="selectin",
     )

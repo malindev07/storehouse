@@ -37,60 +37,22 @@ class PositionsModel(Base):
     )
     provider: Mapped["ProviderModel | None"] = relationship(lazy="selectin")
 
-    # если хочешь знать конкретного менеджера "кто продал":
-    provider_manager_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("provider_manager.id", ondelete="RESTRICT"),
-        nullable=True,
+    warehouse_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("warehouses.id", ondelete="RESTRICT"),
+        nullable=False,
         index=True,
     )
-    provider_manager: Mapped["ProviderManagerModel | None"] = relationship(
-        lazy="selectin"
-    )
 
+    warehouse: Mapped["WarehouseModel"] = relationship(
+        back_populates="positions",
+        lazy="selectin",
+    )
     created_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         server_default=func.now(), onupdate=func.now(), nullable=False
     )
-
-    # def to_dict(self) -> dict:
-    #     return {c.key: getattr(self, c.key) for c in inspect(self).mapper.column_attrs}
-    #
-    # @classmethod
-    # def from_attrs(cls, src: Any) -> "PositionsModel":
-    #     try:
-    #         obj = cls()
-    #         mapper = inspect(cls)
-    #
-    #         is_mapping = isinstance(src, Mapping)
-    #
-    #         # копируем только колонки модели
-    #         for col in mapper.columns:
-    #             key = col.key
-    #
-    #             if is_mapping:
-    #                 if key in src:
-    #                     setattr(obj, key, src[key])
-    #             else:
-    #                 if hasattr(src, key):
-    #                     setattr(obj, key, getattr(src, key))
-    #
-    #         # проверяем обязательные поля (nullable=False и нет default/server_default)
-    #         missing = [
-    #             col.key
-    #             for col in mapper.columns
-    #             if (not col.nullable)
-    #             and (col.default is None)
-    #             and (col.server_default is None)
-    #             and (getattr(obj, col.key, None) is None)
-    #         ]
-    #         if missing:
-    #             raise ValueError(f"Missing required fields: {missing}")
-    #
-    #         return obj
-    #     except Exception as e:
-    #         print(str(e), src)
 
 
 class AVGPositionsInfoModel(Base):

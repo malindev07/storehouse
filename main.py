@@ -8,6 +8,7 @@ from infrastructure.db_helper import db_helper
 from api.routes.providers import router as providers_router
 from api.routes.providers_managers import router as managers_router
 from api.routes.positions import router as positions_router
+from api.routes.warehouse import router as warehouses_router
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -22,6 +23,7 @@ app = FastAPI(lifespan=lifespan)
 app.include_router(providers_router)
 app.include_router(managers_router)
 app.include_router(positions_router)
+app.include_router(warehouses_router)
 
 
 if __name__ == "__main__":

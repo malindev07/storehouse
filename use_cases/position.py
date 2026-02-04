@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 from infrastructure.orm.metadata_providers.positionsMetadataProvider import PositionsMetadataProvider
 from infrastructure.orm.models import PositionsModel
@@ -37,3 +37,25 @@ class PositionsUseCases:
     async def delete_many(self, ids: list[str]) -> bool:
         await self.positions.delete_many(ids)
         return True
+
+    async def find_by_category(self, category: str):
+        res = await self.positions.get_by_category(category)
+        return res or []
+
+    async def find_by_sub_category(self, sub_category: str):
+        res = await self.positions.get_by_sub_category(sub_category)
+        return res or []
+
+    async def search(
+        self,
+        *,
+        warehouse_id: Optional[UUID] = None,
+        category: Optional[str] = None,
+        sub_category: Optional[str] = None,
+    ):
+        res = await self.positions.search(
+            warehouse_id=warehouse_id,
+            category=category,
+            sub_category=sub_category,
+        )
+        return res or []
