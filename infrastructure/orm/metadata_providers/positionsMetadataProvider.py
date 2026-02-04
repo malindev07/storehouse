@@ -12,7 +12,7 @@ from infrastructure.db_helper import DatabaseHelper
 from services.logger_setup import get_logger
 
 log = get_logger(__name__)
-
+from uuid import UUID
 
 @dataclass
 class PositionsMetadataProvider:
@@ -30,7 +30,7 @@ class PositionsMetadataProvider:
             log.info(msg=f"Fail to get items, {e}")
             return None
 
-    async def get_by_id(self, position_id: str) -> PositionsModel | None:
+    async def get_by_id(self, position_id: UUID) -> PositionsModel | None:
         try:
             async with self.db.session(commit=True) as session:
                 query = select(PositionsModel).where(PositionsModel.id == position_id)
