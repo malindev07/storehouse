@@ -9,8 +9,9 @@ from infrastructure.orm.models import PositionsModel
 
 
 from infrastructure.db_helper import DatabaseHelper
-from services.logger_setup import get_logger
+from services.logger_setup import get_logger, setup_logging
 
+setup_logging(level="DEBUG")
 log = get_logger(__name__)
 from uuid import UUID
 
@@ -94,9 +95,10 @@ class PositionsMetadataProvider:
                 await session.flush()
                 if refresh:
                     await session.refresh(obj)
+                log.info(msg=f"Successful insert item - {obj.id}")
                 return obj
         except Exception as e:
-            log.info(msg=f"Fail to insert {item}, {e}")
+            log.error(msg=f"Fail to insert {item}, {e}")
             return None
 
     async def delete_many(self, positions_id: list[str]):

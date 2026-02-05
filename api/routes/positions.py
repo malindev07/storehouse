@@ -1,10 +1,14 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from typing import Any, Optional
 
 from api.dependencies import get_positions_use_cases, get_update_positions_markup_uc
-from api.schemas.positions.positions import PositionRead, PositionCreate, PositionUpdate
+from api.schemas.positions.positions import (
+    PositionReadSchema,
+    PositionUpdateSchema,
+    PositionCreateSchema,
+)
 from api.schemas.positions.positions_markup import (
     PositionsMarkupUpdateRequest,
     PositionsMarkupFilter,
@@ -17,7 +21,7 @@ from use_cases.positions_markup import UpdatePositionsMarkupUseCase
 router = APIRouter(prefix="/positions", tags=["positions"])
 
 
-@router.get("", response_model=list[PositionRead])
+@router.get("", response_model=list[PositionReadSchema])
 async def list_positions(
     warehouse_id: Optional[UUID] = Query(default=None),
     category: Optional[str] = Query(default=None),
@@ -32,7 +36,7 @@ async def list_positions(
     return [x.to_dict() for x in items]
 
 
-@router.get("/{position_id}", response_model=PositionRead)
+@router.get("/{position_id}", response_model=PositionReadSchema)
 async def get_position(
     position_id: UUID, uc: PositionsUseCases = Depends(get_positions_use_cases)
 ):
@@ -42,19 +46,19 @@ async def get_position(
     return item.to_dict()
 
 
-@router.post("", response_model=PositionRead, status_code=201)
+@router.post("", response_model=PositionReadSchema, status_code=201)
 async def create_position(
-    body: PositionCreate, uc: PositionsUseCases = Depends(get_positions_use_cases)
+    body: PositionCreateSchema, uc: PositionsUseCases = Depends(get_positions_use_cases)
 ):
-    item = await uc.create_position(body.model_dump())
-    if item is None:
+    item = await uc.create_position(body)
+    if not item.success:
         raise HTTPException(status_code=400, detail="Failed to create position")
-    return item.to_dict()
+    return item.params
 
 
 @router.post("/bulk", status_code=200)
 async def create_positions_bulk(
-    bodies: list[PositionCreate],
+    bodies: list[PositionCreateSchema],
     uc: PositionsUseCases = Depends(get_positions_use_cases),
 ):
     payload = [b.model_dump() for b in bodies]
@@ -68,10 +72,10 @@ async def create_positions_bulk(
     }
 
 
-@router.patch("/{position_id}", response_model=PositionRead)
+@router.patch("/{position_id}", response_model=PositionReadSchema)
 async def update_position(
     position_id: str,
-    body: PositionUpdate,
+    body: PositionUpdateSchema,
     uc: PositionsUseCases = Depends(get_positions_use_cases),
 ):
     patch = body.model_dump(exclude_unset=True)

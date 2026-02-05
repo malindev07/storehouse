@@ -4,7 +4,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 
 from api.dependencies import get_warehouses_usecases, get_positions_use_cases
-from api.schemas.positions.positions import PositionRead
+from api.schemas.positions.positions import PositionReadSchema
 from api.schemas.warehouse import WarehouseRead, WarehouseCreate, WarehouseUpdate
 from use_cases.position import PositionsUseCases
 from use_cases.warehouse import WarehousesUseCases
@@ -67,7 +67,7 @@ async def delete_warehouse(
     return None
 
 
-@router.get("/{warehouse_id}/positions", response_model=list[PositionRead])
+@router.get("/{warehouse_id}/positions", response_model=list[PositionReadSchema])
 async def list_positions_in_warehouse(
     warehouse_id: UUID,
     uc: PositionsUseCases = Depends(get_positions_use_cases),

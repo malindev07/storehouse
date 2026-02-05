@@ -3,7 +3,7 @@ from typing import Optional
 from pydantic import BaseModel
 
 
-class PositionCreate(BaseModel):
+class PositionCreateSchema(BaseModel):
     category: str
     sub_category: str
     name: str
@@ -12,12 +12,12 @@ class PositionCreate(BaseModel):
     min_balance: Optional[int] = None
     purchase_price: float
     markup: float
-
+    sale_price: float | None = None
     warehouse_id: UUID  # <-- обязательно
     provider_id: Optional[UUID] = None
 
 
-class PositionUpdate(BaseModel):
+class PositionUpdateSchema(BaseModel):
     category: Optional[str] = None
     sub_category: Optional[str] = None
     name: Optional[str] = None
@@ -32,7 +32,7 @@ class PositionUpdate(BaseModel):
     provider_id: Optional[UUID] = None
 
 
-class PositionRead(BaseModel):
+class PositionReadSchema(BaseModel):
     id: UUID
     category: str
     sub_category: str
