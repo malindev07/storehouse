@@ -14,6 +14,7 @@ class Settings(BaseSettings):
     DB_HOST: str | None = os.environ.get("DB_HOST")
     DB_PORT: str | None = os.environ.get("DB_PORT")
     DB_NAME: str | None = os.environ.get("DB_NAME")
+    DB_SCHEMA: str | None = os.environ.get("DB_SCHEMA")
 
     @property
     def database_url(self) -> str:

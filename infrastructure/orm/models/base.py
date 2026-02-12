@@ -1,11 +1,18 @@
 from typing import Mapping, Any
 
-from sqlalchemy import inspect
+from dotenv import load_dotenv
+from sqlalchemy import inspect, MetaData
 from sqlalchemy.orm import DeclarativeBase
+
+from infrastructure.orm.settings import Settings
+
+load_dotenv()
+schema = Settings().DB_SCHEMA.strip().lower()
 
 
 class Base(DeclarativeBase):
-    __abstract__ = True
+
+    metadata = MetaData(schema=schema)
 
     def to_dict(self) -> dict[str, Any]:
         mapper = inspect(self).mapper
